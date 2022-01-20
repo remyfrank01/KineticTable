@@ -1,0 +1,436 @@
+
+/*
+ Kinetic Table Motor Control:
+
+ The code below operates the x and y axes motors
+ of a kinetic table. The function of these motors
+ is to create intricate geometric shapes. This was 
+ done by solving the Cartesian equations for said 
+ shapes and then taking the derivative to determine
+ an appropriate relative x and y velocity (step).
+
+ Created: November 2021
+ Author: Remington Frank
+
+ */
+
+#include <Stepper.h>
+
+int stepsPerRevolution = 20;  // change this to fit the number of steps per revolution
+// for your motor
+// initialize the stepper library on pins 8 through 11:
+Stepper myStepper1(stepsPerRevolution, 8, 9, 10, 11);
+Stepper myStepper2(stepsPerRevolution, 4, 5, 6, 7);
+int Lswitch = 2;
+int oLswitch = 3;
+int LswitchY = 12;
+int LswitchY2 = 13;
+int setupcomp = 0;
+int bigx = 0;
+int bigy = 0;
+
+void setup() {
+  // set the speed at 60 rpm:
+  myStepper1.setSpeed(60);
+  myStepper2.setSpeed(60);
+  // initialize the serial port:
+  Serial.begin(9600);
+  pinMode(Lswitch, INPUT);
+  pinMode(oLswitch, INPUT);
+  pinMode(LswitchY, INPUT);
+  pinMode(LswitchY2, INPUT);
+}
+
+void loop() {
+  digitalWrite(Lswitch, HIGH);
+  digitalWrite(LswitchY, HIGH);
+  digitalWrite(oLswitch, HIGH);
+  digitalWrite(LswitchY2, HIGH);
+  returnToOrigin();
+
+  for(int l = 0; l < 540; l++) {
+    myStepper1.step(-1);
+  }
+
+  for(int j = 0; j < 400; j++) {
+    myStepper2.step(-1);
+  }
+
+  
+  patternOne(1080, 800, 100);
+
+  for(int p = 0; p < 50; p++) {
+    myStepper2.step(-1);
+  }
+  
+  patternOne(1080, 800, 150);
+
+  for(int r = 0; r < 50; r++) {
+    myStepper2.step(-1);
+  }
+  
+  patternOne(1080, 800, 200);
+
+  for(int y = 0; y < 50; y++) {
+    myStepper2.step(-1);
+  }
+  
+  patternOne(1080, 800, 250);
+
+  for(int w = 0; w < 50; w++) {
+    myStepper2.step(-1);
+  }
+  
+  patternOne(1080, 800, 300);
+
+  for(int n = 0; n < 50; n++) {
+    myStepper2.step(-1);
+  }
+  
+  patternOne(1080, 800, 350);
+
+  for(int d = 0; d < 50; d++) {
+    myStepper2.step(-1);
+  }
+  
+  patternOne(1080, 800, 400);
+}
+
+void reset() {
+  if (setupcomp == 0) {
+    returnToOrigin();
+    Serial.println("done");
+    //findXLength();
+    //findYLength();
+    setupcomp = 1;
+  } 
+  if (setupcomp == 1) {
+    bigx = findXLength();
+    bigy = findYLength();
+    setupcomp = 2;
+  }
+  return;
+}
+
+/* The origin is going to be a predetermined corner of the avaiable movement space */
+void returnToOrigin() {
+  // Step the motor until it reaches one of x axis switches
+  while(digitalRead(Lswitch) == HIGH) {
+    Serial.println("here");
+    myStepper1.step(1);
+  }
+
+  // Step the motor until it reaches one of the y axis switches
+  while(digitalRead(LswitchY2) == HIGH) {
+    myStepper2.step(1);
+  }
+}
+
+/* Returns 0 if a boundary is being infringed upon. Returns 1 if there are no issues */
+int checkBoundaries() {
+  int error = 1;
+
+  if(digitalRead(Lswitch) == LOW || digitalRead(oLswitch) == LOW || digitalRead(LswitchY) == LOW || digitalRead(LswitchY2) == LOW) {
+    error = 0;
+    returnToOrigin();
+    return error;
+  }
+
+  return error;
+}
+
+/* Find the integer x value (steps) it takes to reach across x axis 
+*  Requires that the magnet is starting from the origin             */
+int findXLength() {
+  int x = 0;
+
+  while (digitalRead(oLswitch) == HIGH) {
+    myStepper1.step(-1);
+    x += 1;
+  }
+
+  digitalWrite(oLswitch, HIGH);
+
+  while (digitalRead(Lswitch) == HIGH) {
+    myStepper1.step(1);
+  }
+
+  digitalWrite(Lswitch, HIGH);
+
+  return x;
+}
+
+/* Find the integer y value (steps) it takes to reach across y axis
+*  Requires that the magnet is starting from origin.              */
+int findYLength() {
+  int y = 0;
+
+  while (digitalRead(LswitchY) == HIGH) {
+    myStepper2.step(-1);
+    y += 1;
+  }
+
+  while (digitalRead(LswitchY2) == HIGH) {
+    myStepper2.step(1);
+  }
+
+
+  return y;
+}
+
+
+/* Moves the magnet to the center of the board. Returns 0 if successful, 
+*  and other integers depending on specific errors.
+*  Requires that the magnet is starting from the defined origin corner.  */
+int moveToCenter(int xLength, int yLength) {
+  // Place magnet in center of board
+  int error = 0;
+  for(int i = 0; i < (xLength / 2); i++) {
+    myStepper1.step(-1);
+
+    /*if (digitalRead(Lswitch) == LOW) {
+      error = 1;
+      break;
+    }*/
+
+    if(digitalRead(oLswitch) == LOW) {
+      error = 2;
+      break;
+    }
+  }
+
+  for(int j = 0; j < (yLength / 2); j++) {
+    myStepper2.step(-1);
+
+    /*if (digitalRead(LswitchY) == LOW) {
+      error = 1;
+      break;
+    }*/
+
+    if(digitalRead(LswitchY2) == LOW) {
+      error = 2;
+      break;
+    }
+  }
+
+  return error;
+}
+
+
+/* Simple Pattern of a square. Assumes ball starts from origin.
+*  Having another function pass in the radius of the swuare being made
+*  allows easier variation of the squares being printed (to help make
+*  cooler geometric patterns. Radius is measured as distance from center
+*  to one of the edges. */
+
+// TODO: Potentially add a boolean variable "atCenter" to indicate whether or
+// not the magnet is already at the center from a previous shape run.
+
+void patternOne(int xLength, int yLength, int radius) {
+  // Move magnet to center of board. If an error arises, exit function.
+  //int error = moveToCenter(xLength, yLength);
+  //if (error != 0) {
+    //return;
+  //}
+
+  //for (int i = 0; i < radius; i++) {
+    //myStepper2.step(-1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  //}
+
+  for (int j = 0; j < radius; j++) {
+    myStepper1.step(-1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  for (int k = 0; k < (2 * radius); k++) {
+    myStepper2.step(1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  for(int l = 0; l < (2 * radius); l++) {
+    myStepper1.step(1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  for (int m = 0; m < (2 * radius); m++) {
+    myStepper2.step(-1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  for (int n = 0; n < radius; n++) {
+    myStepper1.step(-1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  //for (int o = 0; o < radius; o++) {
+    //myStepper2.step(1);
+    //delay(250);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  //}
+}
+
+
+/* The seccond pattern being programmed is going to be a circle.
+*  This can be combined with other plots to make many concentric circles together. */
+int patternTwo(int xLength, int yLength, int radius) {
+  // Moves magnet to center, ensures there are no errors
+  float x, y, y_vel;
+  //int error = moveToCenter(xLength, yLength);
+  //if (error != 0) {
+    //return;
+  //}
+
+  // Move the marble to the right of the circle
+  for (int i = 0; i < radius; i++) {
+    myStepper1.step(1);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  x = (float)radius;
+  y = 0.0;
+
+  // Iterate over circumference, adjusting y velocity
+  // This should graph half the circle.
+  for (int j = 0; j < 2 * radius; j++) {
+    if(x < 0) {
+      y_vel = x / (sqrt(((float)pow(radius, 2)) - pow(x, 2))); 
+    } else if (abs(x) != radius) {
+      y_vel = -x / (sqrt(((float)pow(radius, 2)) - pow(x, 2))); 
+    } else {
+      y_vel = 1.0;
+    }
+    
+    // dx/dt is fixed at -1
+    myStepper1.step(-1);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+    
+    myStepper2.step(y_vel);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+
+    x = x - 1;
+    y = y + y_vel;
+  }
+
+  // This should plot the upper-half of the circle
+  for (int j = 0; j < 2 * radius; j++) {
+    if(x < 0) {
+      y_vel = (x) / (sqrt((float)pow(radius, 2)) - (pow(x, 2))); 
+    } else if (abs(x) != radius){
+      y_vel = (-x) / (sqrt((float)pow(radius, 2) - pow(x, 2))); 
+    } else {
+      y_vel = 1.0;
+    }
+    
+    // dx/dt is fixed at 1
+    myStepper1.step(1);
+    if (checkBoundaries() == 0) {
+      return;
+    }
+    
+    myStepper2.step(y_vel);
+    if (checkBoundaries() == 0) {
+      return;
+    }
+
+    x = x + 1;
+    y = y + y_vel;
+  }
+}
+
+
+/* This plot creates a line. Can be rotated given scaling factor */
+int patternThree(int xLength, int yLength, float scale) {
+  //int error = moveToCenter(xLength, yLength);
+  //if (error != 0) {
+    //return;
+  //}
+
+  float x, y, y_vel;
+  x = 0.0;
+  y = 0.0;
+
+  // Step in positive x direction at slope of scale
+  for (int i = 0; i < xLength; i++) {
+    myStepper1.step(1);
+    //if (checkBoundaries() == 0) {
+      //break;
+    //}
+    
+    myStepper2.step(scale);
+    //if (checkBoundaries() == 0) {
+      //break;
+    //}
+
+    x = x + 1.0;
+    y = y + scale;
+  }
+
+  // Return to center
+  while (x != 0) {
+    myStepper1.step(-1);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+    
+    myStepper1.step(-scale);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+
+  // Step in -x direction with a slope of -scale
+  for (int j = 0; j < xLength; j++) {
+    myStepper1.step(-1);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+    
+    myStepper2.step(-scale);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+
+    x = x - 1.0;
+    y = y - scale;
+  }
+
+  // Return to center
+  while(x != 0) {
+    myStepper1.step(1);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+    
+    myStepper2.step(scale);
+    //if (checkBoundaries() == 0) {
+      //return;
+    //}
+  }
+}
